@@ -5645,8 +5645,8 @@ class ReturnStatNode(StatNode):
             self.value = self.value.analyse_types(env)
             if return_type.is_void or return_type.is_returncode:
                 error(self.value.pos, "Return with value in void function")
-            else:
-                self.value = self.value.coerce_to(env.return_type, env)
+            #else:
+                #self.value = self.value.coerce_to(env.return_type, env)
         else:
             if (not return_type.is_void
                     and not return_type.is_pyobject

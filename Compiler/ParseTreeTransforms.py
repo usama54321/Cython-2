@@ -3424,3 +3424,27 @@ class DebugTransform(CythonTransform):
 
             self.tb.start('LocalVar', attrs)
             self.tb.end('LocalVar')
+
+class CustomTransform(CythonTransform):
+
+    def __init__(self, context):
+        self.infer = 0
+        self.rtype = None
+        super(CustomTransform, self).__init__(context)
+
+    def visit_CFuncDefNode(self, node):
+        self.infer = 0
+        self.rtype = None
+        self.visitchildren(node)
+        if(self.inferred):
+             node.type.return_type = self.rtype
+             node.local_scope.return_type = self.rtype
+             node.return_type = self.rtype
+        return node
+
+    def visit_ReturnStatNode(self, node):
+        if(not node.value.type.is_pyobject and node.return_type.is_pyobject):
+            node.return_type = node.value.type
+            self.rtype = node.return_type
+            self.inferred = 1
+        return node
