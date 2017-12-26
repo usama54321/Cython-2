@@ -67,7 +67,6 @@ class ModuleNode(Nodes.Node, Nodes.BlockNode):
 
     child_attrs = ["body"]
     directives = None
-
     def merge_in(self, tree, scope, merge_scope=False):
         # Merges in the contents of another tree, and possibly scope. With the
         # current implementation below, this must be done right prior

@@ -1083,15 +1083,16 @@ class ModuleScope(Scope):
     # is_cython_builtin    boolean            Is this the Cython builtin scope (or a child scope)
     # is_package           boolean            Is this a package module? (__init__)
 
+    #call graph           call graph for the module
     is_module_scope = 1
     has_import_star = 0
     is_cython_builtin = 0
     old_style_globals = 0
-
     def __init__(self, name, parent_module, context):
         from . import Builtin
         self.parent_module = parent_module
         outer_scope = Builtin.builtin_scope
+        self.graph = None
         Scope.__init__(self, name, outer_scope, parent_module)
         if name == "__init__":
             # Treat Spam/__init__.pyx specially, so that when Python loads

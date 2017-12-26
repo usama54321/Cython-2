@@ -5126,8 +5126,42 @@ class CallNode(ExprNode):
     # allow overriding the default 'may_be_none' behaviour
     may_return_none = None
 
+    def inter_procedural_analysis(self, env):
+        #first need to find all call sites of this function
+        moduleScope = env.parent_scope
+        graph = moduleScope.graph
+        callsites = graph.nodes[graph.findNode(self.function.name)].getIncomingEdges()
+        listCallers = list(map(lambda x: x.src, callsites))
+        listFunctions = list(map(lambda x: x.context, callsites))
+
+        args = []
+        types = []
+        i = 0
+        #match args on all call sites
+        for callnode in listFunctions:
+            args.append(callnode.args)
+            typestemp = ()
+            for arg in callnode.args:
+                typestemp = typestemp + (arg.infer_type(listCallers[i].local_scope),)
+            types.append(typestemp)
+
+        unique = list(set(types))
+        #if only 1 value can do type inference
+        if(len(unique) > 1):
+            return
+        
+        #infer called function
+        funcNode = moduleScope.graph.findNode(self.function.name)
+        from .TypeInference import get_type_inferer
+        for i in range(0, len(unique[0])):
+            funcNode.local_scope.lookup(funcNode.args[i].name).type = unique[0][i]
+            funcNode.args[i].type = unique[0][i]
+        get_type_inferer().infer_types(funcNode.local_scope)
+         
     def infer_type(self, env):
         # TODO(robertwb): Reduce redundancy with analyse_types.
+        #inter procedural analysis here
+        self.inter_procedural_analysis(env)
         function = self.function
         func_type = function.infer_type(env)
         if isinstance(function, NewExprNode):
@@ -5692,6 +5726,7 @@ class SimpleCallNode(CallNode):
         ret = super(SimpleCallNode, cls).from_node(node, **kwargs)
         ret.is_numpy_call_with_exprs = node.is_numpy_call_with_exprs
         return ret
+
 
 
 class PyMethodCallNode(SimpleCallNode):

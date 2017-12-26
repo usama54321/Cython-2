@@ -8,6 +8,7 @@ from . import PyrexTypes
 from .. import Utils
 from .PyrexTypes import py_object_type, unspecified_type
 from .Visitor import CythonTransform, EnvTransform
+import copy
 
 try:
     reduce
@@ -488,7 +489,9 @@ class SimpleAssignmentTypeInferer(object):
         # types propagation
         while reinfer():
             pass
-
+        from .ParseTreeTransforms import CustomTransform
+        #asdf = CustomTransform()
+        
         if verbose:
             for entry in inferred:
                 message(entry.pos, "inferred '%s' to be of type '%s'" % (
@@ -566,5 +569,28 @@ def safe_spanning_type(types, might_overflow, pos, scope):
     return py_object_type
 
 
+class InterProceduralInferer():
+    
+    initialized = 0
+
+    def __init__(self):
+        self.graph = None
+    def infer_types(self, scope, graph=None):
+        if(InterProceduralInferer.initialized):
+            return SimpleAssignmentTypeInferer().infer_types(scope)
+        #assume I have the graph 
+        InterProceduralInferer.initialized = 1
+        if(not self.graph):
+            self.graph = copy.copy(graph)
+        lengths = {}
+        for key, nodeObj in self.graph.nodes.items():
+            lengths[key] = len(nodeObj.getIncomingEdges())
+        while(len(self.graph.nodes)):
+            currNode  = graph.getNoIncomingFunction() 
+            SimpleAssignmentTypeInferer().infer_types(currNode[0].local_scope)  
+            self.graph.nodes.pop(currNode[0])
+ 
 def get_type_inferer():
+    #return get_type_inferer.inferer
     return SimpleAssignmentTypeInferer()
+get_type_inferer.inferer = InterProceduralInferer()

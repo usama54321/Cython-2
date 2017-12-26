@@ -172,7 +172,10 @@ class ControlFlow(object):
 
     def mark_assignment(self, lhs, rhs, entry):
         if self.block and self.is_tracked(entry):
-            assignment = NameAssignment(lhs, rhs, entry)
+            if(isinstance(rhs, ExprNodes.SimpleCallNode)):
+                assignment = FunctionCall(lhs,rhs,entry)
+            else:
+                assignment = NameAssignment(lhs, rhs, entry)
             self.block.stats.append(assignment)
             self.block.gen[entry] = assignment
             self.entries.add(entry)
@@ -340,6 +343,26 @@ class NameAssignment(object):
         if not self.entry.type.is_unspecified:
             return self.entry.type
         return self.inferred_type
+
+
+class FunctionCall(NameAssignment):
+    
+    def __init__(self,lhs, rhs, entry):
+        super(FunctionCall, self).__init__(lhs, rhs, entry)
+        self.dependencies = None
+
+    def type_dependencies(self):
+        moduleScope = self.entry.scope.parent_scope
+        listFunctions = moduleScope.graph.nodes[moduleScope.graph.findNode(self.rhs.function.name)].getIncomingEdges()
+
+        listFunctions = list(map(lambda x: x.context, listFunctions))
+
+        args = []
+        for callnode in listFunctions:
+            args.append(callnode.args)
+        self.dependencies = args
+        return ()
+
 
 
 class StaticAssignment(NameAssignment):

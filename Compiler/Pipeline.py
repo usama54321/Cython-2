@@ -148,6 +148,7 @@ def create_pipeline(context, mode, exclude_classes=()):
     from .ParseTreeTransforms import ExpandInplaceOperators, ParallelRangeTransform
     from .ParseTreeTransforms import CalculateQualifiedNamesTransform
     from .ParseTreeTransforms import CustomTransform
+    from .ParseTreeTransforms import InterProceduralGraph
     from .TypeInference import MarkParallelAssignments, MarkOverflowingArithmetic
     from .ParseTreeTransforms import AdjustDefByDirectives, AlignFunctionDefinitions
     from .ParseTreeTransforms import RemoveUnreachableCode, GilCheck
@@ -208,6 +209,7 @@ def create_pipeline(context, mode, exclude_classes=()):
         IntroduceBufferAuxiliaryVars(context),
         _check_c_declarations,
         InlineDefNodeCalls(context),
+        InterProceduralGraph(context),
         AnalyseExpressionsTransform(context),
         CustomTransform(context),
         FindInvalidUseOfFusedTypes(context),

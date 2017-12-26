@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-
+from collections import OrderedDict
 import cython
 cython.declare(PyrexTypes=object, Naming=object, ExprNodes=object, Nodes=object,
                Options=object, UtilNodes=object, LetNode=object,
@@ -3430,21 +3430,134 @@ class CustomTransform(CythonTransform):
     def __init__(self, context):
         self.infer = 0
         self.rtype = None
+        self.rtypes = []
         super(CustomTransform, self).__init__(context)
 
     def visit_CFuncDefNode(self, node):
         self.infer = 0
         self.rtype = None
         self.visitchildren(node)
-        if(self.inferred):
+        if(len(self.rtypes)):
+            tempType = self.rtypes[0]
+            flag = True
+            for t in self.rtypes:
+                if(t != tempType):
+                    flag = False
+            if (flag):
+                self.infer = 1
+                self.visitchildren(node) #@todo can be improved
+
+        if(self.infer):
              node.type.return_type = self.rtype
              node.local_scope.return_type = self.rtype
              node.return_type = self.rtype
         return node
 
     def visit_ReturnStatNode(self, node):
-        if(not node.value.type.is_pyobject and node.return_type.is_pyobject):
+        node.value.type = node.value.entry.type
+        if(self.infer):
             node.return_type = node.value.type
             self.rtype = node.return_type
-            self.inferred = 1
+            return node
+        if(not node.value.type.is_pyobject and node.return_type.is_pyobject):
+            self.rtypes.append(node.value.type)
+            
+        return node
+
+class Graph():
+
+    def __init__(self):
+        self.nodes = OrderedDict()  #list of funcdef node
+    
+    def addNode(self, node):
+        self.nodes[node] = Node()
+
+    #callsite   SimpleCallNode
+    def addEdge(self, caller, callee, callsite):
+        edge = Context(caller, callee, callsite)
+        self.nodes[callee].addIncoming(edge)
+        self.nodes[caller].addOutgoing(edge)
+
+    def findNode(self, name):
+        for n in self.nodes:
+            if n.entry.name == name:
+                return n
+        return None
+
+    def topologicalsort(self):
+        newNodes = OrderedDict()
+        tempNodes = OrderedDict()
+        zeroIncoming = []
+        lengths = {}
+        for key, nodeObj in self.nodes.items():
+            if (not len(nodeObj.getIncomingEdges())):
+                zeroIncoming.append(key)
+            lengths[key] = len(nodeObj.getIncomingEdges())
+        while len(self.nodes):
+            currNode = zeroIncoming.pop()
+            newNodes[currNode] = self.nodes[currNode]
+            for edge in self.nodes[currNode].getOutgoingEdges():
+                dest = edge.dest
+                lengths[dest] = lengths[dest] - 1
+                if (not lengths[dest]):
+                    zeroIncoming.append(dest)
+
+            self.nodes.pop(currNode) 
+
+        self.nodes = newNodes
+    def getNoIncomingFunction(self):
+        return list(self.nodes.items())[0]
+
+class Context():
+    def __init__(self, src, dest, context):
+        self.src = src 
+        self.dest = dest 
+        self.context = context 
+
+class Node():
+    def __init__(self):
+        self.callsites = [] 
+        self.calleesites = []
+
+    def addIncoming(self, context):
+        self.calleesites.append(context)
+
+    def addOutgoing(self, context):
+        self.callsites.append(context)
+    
+    def removeIncoming(self, context):
+        self.calleesites.pop(context)
+    
+    def getOutgoingEdges(self):
+        return self.callsites
+
+    def getIncomingEdges(self):
+        return self.calleesites
+
+    #def getFunctionD
+class InterProceduralGraph(CythonTransform):
+    def __init__(self, context):
+        super(InterProceduralGraph, self).__init__(context)
+        self.custvisited = False
+        self.graph = Graph() 
+        self.funcscope = False
+
+    def visit_ModuleNode(self,node):
+        self.visitchildren(node)
+        self.custvisited = True
+        self.visitchildren(node)
+        node.scope.graph = self.graph
+        node.scope.graph.topologicalsort()
+        return node
+
+    def visit_FuncDefNode(self, node):
+        if(not self.custvisited):
+            self.graph.addNode(node)
+            return node
+        self.funcscope = node
+        self.visitchildren(node)
+        return node
+
+    def visit_SimpleCallNode(self,node):
+        self.graph.addEdge(self.funcscope, self.graph.findNode(node.function.name),node)
         return node

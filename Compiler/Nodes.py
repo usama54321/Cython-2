@@ -1622,7 +1622,6 @@ class FuncDefNode(StatNode, BlockNode):
     #       Whether this cdef function has fused parameters. This is needed
     #       by AnalyseDeclarationsTransform, so it can replace CFuncDefNodes
     #       with fused argument types with a FusedCFuncDefNode
-
     py_func = None
     needs_closure = False
     needs_outer_scope = False
