@@ -2265,6 +2265,13 @@ class CFuncDefNode(FuncDefNode):
     is_const_method = False
     py_func_stat = None
 
+    def __init__(self, pos, **kwds):
+        FuncDefNode.__init__(self, pos, **kwds)
+        self.incoming = []
+        self.outgoing = []
+        self.inferred = 0
+        self.parent = None
+
     def unqualified_name(self):
         return self.entry.name
 
@@ -2707,6 +2714,12 @@ class DefNode(FuncDefNode):
 
     def __init__(self, pos, **kwds):
         FuncDefNode.__init__(self, pos, **kwds)
+        self.incoming = []
+        self.outgoing = []
+        self.inferred = 0
+        self.parent = None
+
+
         k = rk = r = 0
         for arg in self.args:
             if arg.kw_only:

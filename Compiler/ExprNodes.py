@@ -5130,6 +5130,8 @@ class CallNode(ExprNode):
         #first need to find all call sites of this function
         moduleScope = env.parent_scope
         graph = moduleScope.graph
+        if(not isinstance(graph.findNode(self.function.name), Nodes.CFuncDefNode)):
+            return
         callsites = graph.nodes[graph.findNode(self.function.name)].getIncomingEdges()
         listCallers = list(map(lambda x: x.src, callsites))
         listFunctions = list(map(lambda x: x.context, callsites))
@@ -5156,8 +5158,11 @@ class CallNode(ExprNode):
         for i in range(0, len(unique[0])):
             funcNode.local_scope.lookup(funcNode.args[i].name).type = unique[0][i]
             funcNode.args[i].type = unique[0][i]
+            funcNode.type.args[i].type = unique[0][i]
         get_type_inferer().infer_types(funcNode.local_scope)
-         
+        from .ParseTreeTransforms import CustomTransform
+        asdf = CustomTransform(None)
+        asdf(funcNode) 
     def infer_type(self, env):
         # TODO(robertwb): Reduce redundancy with analyse_types.
         #inter procedural analysis here

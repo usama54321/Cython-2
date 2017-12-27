@@ -3431,11 +3431,14 @@ class CustomTransform(CythonTransform):
         self.infer = 0
         self.rtype = None
         self.rtypes = []
+        self.env = None
         super(CustomTransform, self).__init__(context)
 
     def visit_CFuncDefNode(self, node):
         self.infer = 0
         self.rtype = None
+        self.rtypes = []
+        self.env = node.local_scope
         self.visitchildren(node)
         if(len(self.rtypes)):
             tempType = self.rtypes[0]
@@ -3454,7 +3457,7 @@ class CustomTransform(CythonTransform):
         return node
 
     def visit_ReturnStatNode(self, node):
-        node.value.type = node.value.entry.type
+        node.value.type = node.value.infer_type(self.env)
         if(self.infer):
             node.return_type = node.value.type
             self.rtype = node.return_type
@@ -3475,6 +3478,8 @@ class Graph():
     #callsite   SimpleCallNode
     def addEdge(self, caller, callee, callsite):
         edge = Context(caller, callee, callsite)
+        caller.outgoing.append(edge)
+        callee.incoming.append(edge)
         self.nodes[callee].addIncoming(edge)
         self.nodes[caller].addOutgoing(edge)
 
@@ -3505,8 +3510,6 @@ class Graph():
             self.nodes.pop(currNode) 
 
         self.nodes = newNodes
-    def getNoIncomingFunction(self):
-        return list(self.nodes.items())[0]
 
 class Context():
     def __init__(self, src, dest, context):
@@ -3547,7 +3550,7 @@ class InterProceduralGraph(CythonTransform):
         self.custvisited = True
         self.visitchildren(node)
         node.scope.graph = self.graph
-        node.scope.graph.topologicalsort()
+        #node.scope.graph.topologicalsort()
         return node
 
     def visit_FuncDefNode(self, node):

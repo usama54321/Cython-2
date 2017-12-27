@@ -783,6 +783,7 @@ class ControlFlowAnalysis(CythonTransform):
     def visit_CTypeDefNode(self, node):
         return node
 
+
     def mark_assignment(self, lhs, rhs=None):
         if not self.flow.block:
             return

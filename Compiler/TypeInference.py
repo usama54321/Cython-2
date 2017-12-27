@@ -490,8 +490,17 @@ class SimpleAssignmentTypeInferer(object):
         while reinfer():
             pass
         from .ParseTreeTransforms import CustomTransform
-        #asdf = CustomTransform()
         
+        """types = set()
+        for stat in scope.return_stats:
+           types.add(stat.value.infer_type(scope))
+        types = list(types) 
+        if(len(types) == 1):
+            for stat in scope.return_stats:
+                stat.return_type = types[0]
+            scope.return_type = types[0]
+        #return inference
+        """
         if verbose:
             for entry in inferred:
                 message(entry.pos, "inferred '%s' to be of type '%s'" % (
