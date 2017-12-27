@@ -348,9 +348,43 @@ class Scope(object):
         self.buffer_entries = []
         self.lambda_defs = []
         self.id_counters = {}
+        self.incoming = []
+        self.outgoing = []
+        self.inferred = 0
+        self.callParent = None
+        self.is_recursive = 0
 
     def __deepcopy__(self, memo):
         return self
+
+    def getIncomingEdges(self):
+        return self.incoming
+
+    def findOutgoing(self, name):
+        for outgoing in self.outgoing:
+            if outgoing.dest.entry.name == name:
+                return outgoing.dest
+        return None
+
+    def getParent(self):
+        if(self.callParent):
+            return self.callParent
+        return self.findParent()
+
+    #first calling function with no incoming edges
+    def findParent(self):
+        if(not len(self.incoming)):
+            return self
+        if(self.is_recursive):
+            calls = list(filter(lambda x: x.dest.entry.name != self.name, self.incoming))
+            if(len(calls)):
+                self.callParent = calls[0].src.local_scope.getParent()
+            else:
+                self.callParent = self
+            return self.callParent
+        else:
+            self.callParent = self.incoming[0].src.local_scope.getParent() 
+        return self.callParent
 
     def merge_in(self, other, merge_unused=True, whitelist=None):
         # Use with care...

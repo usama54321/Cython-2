@@ -353,8 +353,11 @@ class FunctionCall(NameAssignment):
 
     def type_dependencies(self):
         moduleScope = self.entry.scope.parent_scope
-        listFunctions = moduleScope.graph.nodes[moduleScope.graph.findNode(self.rhs.function.name)].getIncomingEdges()
-
+        calleeScope = self.entry.scope.findOutgoing(self.rhs.function.name)
+        if(not calleeScope):
+            return
+        calleeScope = calleeScope.local_scope
+        listFunctions = calleeScope.getIncomingEdges()
         listFunctions = list(map(lambda x: x.context, listFunctions))
 
         args = []

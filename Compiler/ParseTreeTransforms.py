@@ -3462,6 +3462,7 @@ class CustomTransform(CythonTransform):
             node.return_type = node.value.type
             self.rtype = node.return_type
             return node
+        node.analyse_expressions(self.env)
         if(not node.value.type.is_pyobject and node.return_type.is_pyobject):
             self.rtypes.append(node.value.type)
             
@@ -3478,10 +3479,10 @@ class Graph():
     #callsite   SimpleCallNode
     def addEdge(self, caller, callee, callsite):
         edge = Context(caller, callee, callsite)
-        caller.outgoing.append(edge)
-        callee.incoming.append(edge)
-        self.nodes[callee].addIncoming(edge)
-        self.nodes[caller].addOutgoing(edge)
+        if(caller.entry.name == callee.entry.name):
+            caller.local_scope.is_recursive = 1
+        caller.local_scope.outgoing.append(edge)
+        callee.local_scope.incoming.append(edge)
 
     def findNode(self, name):
         for n in self.nodes:
@@ -3489,6 +3490,7 @@ class Graph():
                 return n
         return None
 
+    
     def topologicalsort(self):
         newNodes = OrderedDict()
         tempNodes = OrderedDict()
@@ -3564,3 +3566,72 @@ class InterProceduralGraph(CythonTransform):
     def visit_SimpleCallNode(self,node):
         self.graph.addEdge(self.funcscope, self.graph.findNode(node.function.name),node)
         return node
+
+class RecursiveTransform(CythonTransform):
+    def __init__(self, context, calls):
+        super(RecursiveTransform, self).__init__(context)
+        self.env = None
+        self.callsites = calls
+        self.filtered = []
+        self.rtype = None
+        self.infer = 0
+    def visit_CFuncDefNode(self, node):
+        self.env = node.local_scope 
+        self.visitchildren(node)
+        types = set()
+        for returnStat in self.filtered:
+            types.add(returnStat.value.infer_type(self.env))
+        types = list(types)
+        if(len(types) > 1):
+            return node
+        #infer recursive
+        self.infer = 1
+        self.rtype = types[0]
+        node.type.return_type = self.rtype
+        node.local_scope.return_type = self.rtype
+        node.return_type = self.rtype
+        self.visitchildren(node)
+        return node
+
+    def findCall(self, expr):
+        
+        if(isinstance(expr, ExprNodes.ExprNode)):
+            i = 1
+            while(1):
+                if hasattr(expr, 'operand' + str(i)):
+                    attribute = getattr(expr, 'operand' + str(i))
+                    if(attribute in self.callsites):
+                        return True
+                    found = self.findCall(getattr(expr, 'operand' + str(i)))
+                    if found:
+                        return True 
+                else:
+                    break
+            return False
+    def visit_ReturnStatNode(self, node):
+
+        for callsite in self.callsites:
+            if (callsite.pos[1] < node.pos[1]): #row number
+                return node
+        if(isinstance(node.value, ExprNodes.ExprNode)):
+            if(self.findCall(node.value)):
+                return node
+        if(self.infer):
+            node.return_type = node.value.type
+            return node 
+        self.filtered.append(node)
+        return node
+class TempTransform(CythonTransform):
+
+    def __init__(self, context):
+        super(TempTransform, self).__init__(context)
+        self.types = set()
+        self.env = None
+    def visit_CFuncDefNode(self, node):
+        self.env = node.local_scope
+        self.visitchildren(node)
+
+    def visit_ReturnStatNode(self, node):
+        node.value.analyse_types(self.env)
+        node.value.type = node.value.infer_type(self.env)
+        self.types.add(node.value.type)

@@ -5128,13 +5128,19 @@ class CallNode(ExprNode):
 
     def inter_procedural_analysis(self, env):
         #first need to find all call sites of this function
-        moduleScope = env.parent_scope
-        graph = moduleScope.graph
-        if(not isinstance(graph.findNode(self.function.name), Nodes.CFuncDefNode)):
+
+        funcNode = env.findOutgoing(self.function.name)
+        if(env.name == funcNode.entry.name):
             return
-        callsites = graph.nodes[graph.findNode(self.function.name)].getIncomingEdges()
+        if(funcNode.inferred):
+            return
+
+        if(not isinstance(env.findOutgoing(self.function.name), Nodes.CFuncDefNode)):
+            return
+        callsites = funcNode.local_scope.getIncomingEdges()
         listCallers = list(map(lambda x: x.src, callsites))
-        listFunctions = list(map(lambda x: x.context, callsites))
+        listFunctions = list(filter(lambda x: x.dest != x.src, callsites))
+        listFunctions = list(map(lambda x: x.context, listFunctions))
 
         args = []
         types = []
@@ -5153,16 +5159,22 @@ class CallNode(ExprNode):
             return
         
         #infer called function
-        funcNode = moduleScope.graph.findNode(self.function.name)
-        from .TypeInference import get_type_inferer
         for i in range(0, len(unique[0])):
             funcNode.local_scope.lookup(funcNode.args[i].name).type = unique[0][i]
             funcNode.args[i].type = unique[0][i]
             funcNode.type.args[i].type = unique[0][i]
-        get_type_inferer().infer_types(funcNode.local_scope)
-        from .ParseTreeTransforms import CustomTransform
-        asdf = CustomTransform(None)
-        asdf(funcNode) 
+        
+        if(funcNode.local_scope.is_recursive):
+            from .TypeInference import InterProceduralInferer 
+
+            InterProceduralInferer().infer_recursive(funcNode.local_scope, funcNode)
+        else:
+
+            from .TypeInference import SimpleAssignmentTypeInferer 
+            SimpleAssignmentTypeInferer().infer_types(funcNode.local_scope)
+            from .ParseTreeTransforms import CustomTransform
+            temp = CustomTransform(None)
+            temp(funcNode) 
     def infer_type(self, env):
         # TODO(robertwb): Reduce redundancy with analyse_types.
         #inter procedural analysis here

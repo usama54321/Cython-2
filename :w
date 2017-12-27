@@ -584,33 +584,15 @@ class InterProceduralInferer():
 
     def __init__(self):
         self.graph = None
-    
-    def infer_recursive(self, scope, node):
-        callsites = scope.outgoing
-        recursive_calls = []
-        for callsite in callsites:
-            if (callsite.dest.entry.name == callsite.src.entry.name):
-                recursive_calls.append(callsite.context) #get all SimpleCallNodes
-        from .ParseTreeTransforms import RecursiveTransform,TempTransform
-        temp = RecursiveTransform(None, recursive_calls)
-        temp(node)
-        SimpleAssignmentTypeInferer().infer_types(node.local_scope) 
-        temp = TempTransform(None)
-        temp(node)
     def infer_types(self, scope):
-        parent = scope.getParent()
         if(scope.is_recursive):
             #get all return sites before recursive call  
-            if(parent == scope):
-                #no function calling this. Can't infer args
-                return
-                pass
-            else:
-               InterProceduralInferer().infer_types(parent) 
         else:
-        #if(parent != scope):
+            parent = scope.getParent()
+            #if(parent != scope):
             SimpleAssignmentTypeInferer().infer_types(parent)
-
+        
+        
 def get_type_inferer():
     #return get_type_inferer.inferer
     #return SimpleAssignmentTypeInferer()
