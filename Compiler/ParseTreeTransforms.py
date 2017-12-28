@@ -17,6 +17,7 @@ from . import Options
 from . import Builtin
 from .PyrexTypes import py_object_type
 
+from .ModuleNode import ModuleNode
 from .Visitor import VisitorTransform, TreeVisitor
 from .Visitor import CythonTransform, EnvTransform, ScopeTrackingTransform
 from .UtilNodes import LetNode, LetRefNode
@@ -3482,10 +3483,15 @@ class Graph():
     #callsite   SimpleCallNode
     def addEdge(self, caller, callee, callsite):
         edge = Context(caller, callee, callsite)
-        if(caller.entry.name == callee.entry.name):
-            caller.local_scope.is_recursive = 1
-        caller.local_scope.outgoing.append(edge)
-        callee.local_scope.incoming.append(edge)
+        scopeCaller = None
+        if(isinstance(caller, ModuleNode)):
+            scopeCaller = caller.scope
+        else:
+            scopeCaller = caller.local_scope
+            if(caller.local_scope == callee.local_scope):
+                caller.local_scope.is_recursive = 1
+        scopeCaller.addOutgoing(edge)
+        callee.local_scope.addIncoming(edge)
 
     def findNode(self, name):
         for n in self.nodes:
@@ -3549,8 +3555,10 @@ class InterProceduralGraph(CythonTransform):
         self.custvisited = False
         self.graph = Graph() 
         self.funcscope = False
+        self.modscope = False
 
     def visit_ModuleNode(self,node):
+        self.modscope = node
         self.visitchildren(node)
         self.custvisited = True
         self.visitchildren(node)
@@ -3564,16 +3572,18 @@ class InterProceduralGraph(CythonTransform):
             return node
         self.funcscope = node
         self.visitchildren(node)
+        self.funcscope = None
         return node
 
     def visit_SimpleCallNode(self,node):
         from . import ExprNodes
-        if(not isinstance(node.function, ExprNodes.SimpleCallNode)):
+        if(not isinstance(node.function, ExprNodes.NameNode)):
             return node
         funcScope = self.graph.findNode(node.function.name) 
         if(not funcScope):
             return node
-        self.graph.addEdge(self.funcscope,funcScope ,node)
+        callerScope = self.funcscope if self.funcscope else self.modscope
+        self.graph.addEdge(callerScope,funcScope ,node)
         return node
 
 class RecursiveTransform(CythonTransform):
@@ -3631,6 +3641,7 @@ class RecursiveTransform(CythonTransform):
             return node 
         self.filtered.append(node)
         return node
+
 class TempTransform(CythonTransform):
 
     def __init__(self, context):

@@ -21,7 +21,6 @@ from .PyrexTypes import py_object_type, unspecified_type
 from .TypeSlots import (
     pyfunction_signature, pymethod_signature, richcmp_special_methods,
     get_special_method_signature, get_property_accessor_signature)
-
 from . import Code
 
 iso_c99_keywords = set(
@@ -360,11 +359,18 @@ class Scope(object):
     def getIncomingEdges(self):
         return self.incoming
 
+    def addIncoming(self, edge):
+        self.incoming.append(edge)
+
+    def addOutgoing(self, edge):
+        self.outgoing.append(edge)
+
     def findOutgoing(self, name):
         for outgoing in self.outgoing:
             if outgoing.dest.entry.name == name:
                 return outgoing.dest
         return None
+
 
     def getParent(self):
         if(self.callParent):
@@ -373,17 +379,29 @@ class Scope(object):
 
     #first calling function with no incoming edges
     def findParent(self):
+
+        from . import ModuleNode
         if(not len(self.incoming)):
             return self
         if(self.is_recursive):
-            calls = list(filter(lambda x: x.src.entry.name != self.name, self.incoming))
+            calls = []
+            for i in self.incoming:
+
+                if (not isinstance(i.src, ModuleNode.ModuleNode) and not i.src.local_scope == self):
+                    calls.append(i)
             if(len(calls)):
-                self.callParent = calls[0].src.local_scope.getParent()
+                if(isinstance(calls[0].src, ModuleNode.ModuleNode)):
+                    self.callParent = calls[0].scope.getParent()
+                else:
+                    self.callParent = calls[0].src.local_scope.getParent()
             else:
                 self.callParent = self
             return self.callParent
         else:
-            self.callParent = self.incoming[0].src.local_scope.getParent() 
+            if(isinstance(self.incoming[0].src, ModuleNode.ModuleNode)):
+                self.callParent = self.incoming[0].src.scope.getParent() 
+            else:
+                self.callParent = self.incoming[0].src.local_scope.getParent() 
         return self.callParent
 
     def merge_in(self, other, merge_unused=True, whitelist=None):

@@ -368,7 +368,8 @@ class SimpleAssignmentTypeInferer(object):
     def infer_types(self, scope):
         enabled = scope.directives['infer_types']
         verbose = scope.directives['infer_types.verbose']
-
+        if scope.inferred:
+            return
         if enabled == True:
             spanning_type = aggressive_spanning_type
         elif enabled is None: # safe mode
@@ -603,10 +604,10 @@ class InterProceduralInferer():
             #get all return sites before recursive call  
             if(parent == scope):
                 #no function calling this. Can't infer args
+                SimpleAssignmentTypeInferer().infer_types(parent) 
                 return
-                pass
             else:
-               InterProceduralInferer().infer_types(parent) 
+                InterProceduralInferer().infer_types(parent) 
         else:
         #if(parent != scope):
             SimpleAssignmentTypeInferer().infer_types(parent)

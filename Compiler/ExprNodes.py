@@ -5127,6 +5127,8 @@ class CallNode(ExprNode):
     may_return_none = None
 
     def inter_procedural_analysis(self, env):
+
+        from .TypeInference import SimpleAssignmentTypeInferer 
         #first need to find all call sites of this function
         from . import ExprNodes
         if(not isinstance(self.function, ExprNodes.NameNode)):
@@ -5140,6 +5142,8 @@ class CallNode(ExprNode):
             return
 
         if(not isinstance(env.findOutgoing(self.function.name), Nodes.CFuncDefNode)):
+            #pass
+            SimpleAssignmentTypeInferer().infer_types(funcNode.local_scope)
             return
         callsites = funcNode.local_scope.getIncomingEdges()
         listCallers = list(map(lambda x: x.src, callsites))
@@ -5174,7 +5178,6 @@ class CallNode(ExprNode):
             InterProceduralInferer().infer_recursive(funcNode.local_scope, funcNode)
         else:
 
-            from .TypeInference import SimpleAssignmentTypeInferer 
             SimpleAssignmentTypeInferer().infer_types(funcNode.local_scope)
             from .ParseTreeTransforms import CustomTransform
             temp = CustomTransform(None)
