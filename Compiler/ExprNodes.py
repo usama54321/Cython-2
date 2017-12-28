@@ -5128,8 +5128,12 @@ class CallNode(ExprNode):
 
     def inter_procedural_analysis(self, env):
         #first need to find all call sites of this function
-
+        from . import ExprNodes
+        if(not isinstance(self.function, ExprNodes.NameNode)):
+            return
         funcNode = env.findOutgoing(self.function.name)
+        if(not funcNode):
+            return
         if(env.name == funcNode.entry.name):
             return
         if(funcNode.inferred):

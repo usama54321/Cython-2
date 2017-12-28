@@ -350,20 +350,8 @@ class FunctionCall(NameAssignment):
     def __init__(self,lhs, rhs, entry):
         super(FunctionCall, self).__init__(lhs, rhs, entry)
         self.dependencies = None
-
+    
     def type_dependencies(self):
-        moduleScope = self.entry.scope.parent_scope
-        calleeScope = self.entry.scope.findOutgoing(self.rhs.function.name)
-        if(not calleeScope):
-            return
-        calleeScope = calleeScope.local_scope
-        listFunctions = calleeScope.getIncomingEdges()
-        listFunctions = list(map(lambda x: x.context, listFunctions))
-
-        args = []
-        for callnode in listFunctions:
-            args.append(callnode.args)
-        self.dependencies = args
         return ()
 
 

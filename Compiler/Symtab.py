@@ -376,7 +376,7 @@ class Scope(object):
         if(not len(self.incoming)):
             return self
         if(self.is_recursive):
-            calls = list(filter(lambda x: x.dest.entry.name != self.name, self.incoming))
+            calls = list(filter(lambda x: x.src.entry.name != self.name, self.incoming))
             if(len(calls)):
                 self.callParent = calls[0].src.local_scope.getParent()
             else:

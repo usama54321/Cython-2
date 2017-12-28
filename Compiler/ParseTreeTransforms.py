@@ -15,6 +15,7 @@ from . import ExprNodes
 from . import Nodes
 from . import Options
 from . import Builtin
+from .PyrexTypes import py_object_type
 
 from .Visitor import VisitorTransform, TreeVisitor
 from .Visitor import CythonTransform, EnvTransform, ScopeTrackingTransform
@@ -3457,6 +3458,8 @@ class CustomTransform(CythonTransform):
         return node
 
     def visit_ReturnStatNode(self, node):
+        if(not node.value):
+            return node
         node.value.type = node.value.infer_type(self.env)
         if(self.infer):
             node.return_type = node.value.type
@@ -3564,7 +3567,13 @@ class InterProceduralGraph(CythonTransform):
         return node
 
     def visit_SimpleCallNode(self,node):
-        self.graph.addEdge(self.funcscope, self.graph.findNode(node.function.name),node)
+        from . import ExprNodes
+        if(not isinstance(node.function, ExprNodes.SimpleCallNode)):
+            return node
+        funcScope = self.graph.findNode(node.function.name) 
+        if(not funcScope):
+            return node
+        self.graph.addEdge(self.funcscope,funcScope ,node)
         return node
 
 class RecursiveTransform(CythonTransform):
@@ -3582,7 +3591,7 @@ class RecursiveTransform(CythonTransform):
         for returnStat in self.filtered:
             types.add(returnStat.value.infer_type(self.env))
         types = list(types)
-        if(len(types) > 1):
+        if(len(types) != 1):
             return node
         #infer recursive
         self.infer = 1
@@ -3594,14 +3603,15 @@ class RecursiveTransform(CythonTransform):
         return node
 
     def findCall(self, expr):
-        
+
+        if(expr in self.callsites):
+            return True
+       
         if(isinstance(expr, ExprNodes.ExprNode)):
             i = 1
             while(1):
                 if hasattr(expr, 'operand' + str(i)):
                     attribute = getattr(expr, 'operand' + str(i))
-                    if(attribute in self.callsites):
-                        return True
                     found = self.findCall(getattr(expr, 'operand' + str(i)))
                     if found:
                         return True 
@@ -3627,11 +3637,22 @@ class TempTransform(CythonTransform):
         super(TempTransform, self).__init__(context)
         self.types = set()
         self.env = None
+        self.revert = 0
+
     def visit_CFuncDefNode(self, node):
         self.env = node.local_scope
         self.visitchildren(node)
-
+        if(len(self.types) > 1):
+            self.revert = 1
+            self.visitchildren(node)
+            node.type.return_type = py_object_type 
+            node.local_scope.return_type = py_object_type 
+            node.return_type = py_object_type 
+        return node 
     def visit_ReturnStatNode(self, node):
+        if(self.revert):
+            node.return_type = py_object_type    
         node.value.analyse_types(self.env)
         node.value.type = node.value.infer_type(self.env)
         self.types.add(node.value.type)
+        return node
